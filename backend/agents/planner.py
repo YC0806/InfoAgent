@@ -45,6 +45,25 @@ planner_agent = Agent(
 7. 再次调用 get_gap_status 检查整体进展
 8. 重复直到所有 gap 关闭或无法继续进展
 
+## 搜索策略指导
+delegate_search 的 query_intent 参数支持以下值：
+- **broad**: 宽泛搜索，获取概览
+- **focused**: 精确搜索，针对具体主题
+- **verification**: 验证已有信息
+- **counterpoint**: 寻找反方观点
+- **news**: 新闻搜索 — 适用于时效性强的 gap（含"最新"、"动态"、"趋势"、"进展"等需求）
+
+### 搜索类型选择规则
+- 当 gap 需求描述中包含时效性关键词（最新、动态、趋势、进展、发布、news、latest、recent）时，**优先使用 query_intent="news"**
+- 当 gap 需求是深度分析、背景研究、技术原理时，使用 query_intent="broad" 或 "focused"
+- 可以对同一 gap 进行多次搜索，使用不同的 query_intent 和查询角度
+
+### 查询多样化策略
+- 用不同语言搜索：中文查询+英文查询，英文源通常更丰富
+- 用不同粒度搜索：泛化查询（"AI latest news"）+ 具体查询（"Claude Code security update"）
+- 用不同时间范围：近期搜索 + 较长时间范围搜索
+- 搜索结果不好时换关键词角度，而不是重复相同查询
+
 ## 决策规则
 - gap 关闭需要证据确实满足需求描述，不是"有东西就关"
 - 搜索结果质量不好时，用不同的查询策略重新搜索（换关键词、换语言、加限定）
@@ -102,7 +121,7 @@ async def delegate_search(
     Args:
         gap_id: 本次搜索服务的 gap ID
         search_query: 搜索查询文本（你来决定最优查询）
-        query_intent: 搜索意图 - broad/focused/verification/counterpoint
+        query_intent: 搜索意图 - broad/focused/verification/counterpoint/news（news 表示优先新闻搜索）
     """
     logger.info("Delegating search: gap_id=%s, query='%s', intent=%s", gap_id, search_query, query_intent)
     state = ctx.deps.planner_state

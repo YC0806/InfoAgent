@@ -32,11 +32,15 @@ class SearchTool:
     def __init__(self, provider: Optional[BraveSearchProvider] = None) -> None:
         self.provider = provider or BraveSearchProvider()
 
-    async def search(self, query: str, count: int = 10) -> List[Dict[str, str]]:
+    async def search(
+        self, query: str, count: int = 10, freshness: Optional[str] = None
+    ) -> List[Dict[str, str]]:
         if not query.strip():
             return []
         try:
-            results = await self.provider.search(query=query, count=count, safesearch="moderate")
+            results = await self.provider.search(
+                query=query, count=count, safesearch="moderate", freshness=freshness
+            )
             normalized: List[Dict[str, str]] = []
             for item in results:
                 url = item.get("url")
@@ -54,6 +58,42 @@ class SearchTool:
         except Exception as exc:
             logger.warning("Brave search failed, fallback to local candidates: %s", exc)
         return self._fallback_candidates(query=query, count=count)
+
+    async def search_news(
+        self, query: str, count: int = 20, freshness: str = "pw"
+    ) -> List[Dict[str, str]]:
+        """Search news articles via Brave News API.
+
+        Args:
+            query: Search query text.
+            count: Number of results (default 20).
+            freshness: Time filter — pd (past day), pw (past week), pm (past month).
+        """
+        if not query.strip():
+            return []
+        try:
+            results = await self.provider.search_news(
+                query=query, count=count, safesearch="moderate", freshness=freshness
+            )
+            normalized: List[Dict[str, str]] = []
+            for item in results:
+                url = item.get("url")
+                if not url:
+                    continue
+                normalized.append(
+                    {
+                        "title": item.get("title") or "",
+                        "url": url,
+                        "description": item.get("description") or "",
+                        "source": item.get("source") or "",
+                        "page_age": item.get("page_age") or "",
+                    }
+                )
+            if normalized:
+                return normalized
+        except Exception as exc:
+            logger.warning("Brave news search failed, fallback to web search: %s", exc)
+        return await self.search(query=query, count=count, freshness=freshness)
 
     def _fallback_candidates(self, query: str, count: int) -> List[Dict[str, str]]:
         tokens = [item for item in query.replace("，", " ").replace(",", " ").split(" ") if item]

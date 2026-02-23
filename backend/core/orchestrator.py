@@ -88,7 +88,7 @@ class InfoAgentOrchestrator:
         else:
             logger.info("Building Brief for query: %s", query_text)
             brief_result = await brief_agent.run(
-                f"分析以下研究查询并生成 Brief:\n\n查询: {query_text}\n语言: {language}，请求时间: {datetime.strftime(user_query.timestamp, '%Y-%m-%d %H:%M:%S')}",
+                f"分析以下研究查询并生成 Brief 并按照JSON Shema格式输出:\n\n查询: {query_text}\n语言: {language}，请求时间: {datetime.strftime(user_query.timestamp, '%Y-%m-%d %H:%M:%S')}",
                 deps=deps,
                 usage_limits=UsageLimits(request_limit=None)
             )
@@ -106,7 +106,7 @@ class InfoAgentOrchestrator:
         else:
             logger.info("Building FacetPlan from Brief")
             facet_plan_result = await facet_plan_agent.run(
-                f"基于以下 Brief 生成 FacetPlan:\n\n{brief.model_dump_json(indent=2)}",
+                f"基于以下 Brief 生成 FacetPlan 并按照JSON Shema格式输出:\n\n{brief.model_dump_json(indent=2)}",
                 deps=deps,
                 usage_limits=UsageLimits(request_limit=None)
             )
@@ -184,6 +184,7 @@ class InfoAgentOrchestrator:
                 facet_context += (
                     f"  - [{req.requirement_type}] {req.description} "
                     f"(完成规则: {req.completion_rule})\n"
+                    "按照JSON Shema格式输出\n"
                 )
 
             try:

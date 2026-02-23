@@ -13,10 +13,13 @@ from utils.config import settings
 class BraveSearchProvider(BaseSearchProvider):
     """Brave Search API provider."""
 
+    WEB_BASE_URL = "https://api.search.brave.com/res/v1/web/search"
+    NEWS_BASE_URL = "https://api.search.brave.com/res/v1/news/search"
+
     def __init__(
         self,
         api_key: Optional[str] = None,
-        base_url: str = "https://api.search.brave.com/res/v1/web/search",
+        base_url: str = WEB_BASE_URL,
         timeout: int = 30,
     ) -> None:
         self.api_key = api_key or settings.brave_api_key
@@ -32,6 +35,7 @@ class BraveSearchProvider(BaseSearchProvider):
         safesearch: Optional[str] = None,
         freshness: Optional[str] = None,
         summary: bool = False,
+        extra_snippets: bool = False,
     ) -> List[dict]:
         params: Dict[str, Any] = {
             "q": query,
@@ -46,6 +50,8 @@ class BraveSearchProvider(BaseSearchProvider):
             params["freshness"] = freshness
         if summary:
             params["summary"] = 1
+        if extra_snippets:
+            params["extra_snippets"] = 1
 
         response = await self._get_json(params)
         results = response.get("web", {}).get("results", [])
@@ -61,10 +67,66 @@ class BraveSearchProvider(BaseSearchProvider):
             )
         return normalized
 
-    async def _get_json(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def search_news(
+        self,
+        query: str,
+        count: int = 20,
+        offset: int = 0,
+        country: Optional[str] = None,
+        safesearch: Optional[str] = None,
+        freshness: Optional[str] = "pw",
+        extra_snippets: bool = False,
+    ) -> List[dict]:
+        """Search Brave News API for recent news articles.
+
+        Args:
+            query: Search query text.
+            count: Number of results (default 20).
+            offset: Pagination offset.
+            country: Country code filter.
+            safesearch: Safe search level.
+            freshness: Time filter — pd (past day), pw (past week), pm (past month).
+            extra_snippets: Request extra snippets.
+        """
+        params: Dict[str, Any] = {
+            "q": query,
+            "count": count,
+            "offset": offset,
+        }
+        if country:
+            params["country"] = country
+        if safesearch:
+            params["safesearch"] = safesearch
+        if freshness:
+            params["freshness"] = freshness
+        if extra_snippets:
+            params["extra_snippets"] = 1
+
+        response = await self._get_json(params, base_url=self.NEWS_BASE_URL)
+        results = response.get("results", [])
+        normalized: List[dict] = []
+        for item in results:
+            normalized.append(
+                {
+                    "title": item.get("title"),
+                    "url": item.get("url"),
+                    "description": item.get("description") or item.get("snippet"),
+                    "source": item.get("meta_url", {}).get("hostname")
+                    if isinstance(item.get("meta_url"), dict)
+                    else None,
+                    "page_age": item.get("page_age"),
+                    "raw": item,
+                }
+            )
+        return normalized
+
+    async def _get_json(
+        self, params: Dict[str, Any], base_url: Optional[str] = None
+    ) -> Dict[str, Any]:
         if not self.api_key:
             raise ValueError("BRAVE_API_KEY is not set")
-        url = f"{self.base_url}?{urlencode(params)}"
+        effective_url = base_url or self.base_url
+        url = f"{effective_url}?{urlencode(params)}"
         headers = {
             "Accept": "application/json",
             "X-Subscription-Token": self.api_key,

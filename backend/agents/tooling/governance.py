@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 # Default budgets per agent role
 # ---------------------------------------------------------------------------
 PLANNER_TOOL_BUDGET = 20
-SEARCH_TOOL_BUDGET = 3
+SEARCH_TOOL_BUDGET = 5
 FETCH_TOOL_BUDGET = 10
 
 
